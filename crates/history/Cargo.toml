@@ -1,0 +1,23 @@
+[package]
+name = "history"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+clipboard = { path = "../clipboard" }
+tokio = { workspace = true, features = ["rt", "time"] }
+serde = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+dirs = "5"
+image = { workspace = true }
+memmap2 = "0.9"
+regex = "1"
+walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"

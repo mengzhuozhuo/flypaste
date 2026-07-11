@@ -1,0 +1,6 @@
+<key>LSUIElement</key>
+<true/>
+<key>NSHighResolutionCapable</key>
+<true/>
+<key>NSAccessibilityUsageDescription</key>
+<string>Flypaste 需要辅助功能权限，以便将历史内容粘贴到其他应用。</string>

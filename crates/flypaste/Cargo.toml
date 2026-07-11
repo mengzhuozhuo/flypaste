@@ -1,0 +1,63 @@
+[package]
+name = "flypaste"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "flypaste"
+path = "src/main.rs"
+
+[dependencies]
+gpui = { workspace = true }
+gpui_macos = { workspace = true, features = ["font-kit"] }
+gpui_platform = { workspace = true }
+editor = { git = "https://github.com/zed-industries/zed.git", package = "editor", rev = "ee6495dce4012019ccc235486afa800da443d680" }
+ui = { git = "https://github.com/zed-industries/zed.git", package = "ui", rev = "ee6495dce4012019ccc235486afa800da443d680" }
+language = { git = "https://github.com/zed-industries/zed.git", package = "language", rev = "ee6495dce4012019ccc235486afa800da443d680" }
+settings = { git = "https://github.com/zed-industries/zed.git", package = "settings", rev = "ee6495dce4012019ccc235486afa800da443d680" }
+theme = { git = "https://github.com/zed-industries/zed.git", package = "theme", rev = "ee6495dce4012019ccc235486afa800da443d680" }
+theme_settings = { git = "https://github.com/zed-industries/zed.git", package = "theme_settings", rev = "ee6495dce4012019ccc235486afa800da443d680" }
+menu = { git = "https://github.com/zed-industries/zed.git", package = "menu", rev = "ee6495dce4012019ccc235486afa800da443d680" }
+zed_actions = { git = "https://github.com/zed-industries/zed.git", package = "zed_actions", rev = "ee6495dce4012019ccc235486afa800da443d680" }
+cocoa = { workspace = true }
+objc = { workspace = true }
+core-graphics = { workspace = true }
+clipboard = { path = "../clipboard" }
+history = { path = "../history" }
+hotkey = { path = "../hotkey" }
+injector = { path = "../injector" }
+fly_settings = { path = "../settings", package = "fly_settings" }
+tokio = { workspace = true, features = ["rt", "sync"] }
+anyhow = { workspace = true }
+unicode-segmentation = "1.10"
+log = { workspace = true }
+env_logger = { workspace = true }
+crossbeam-channel = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+image = { workspace = true }
+rust-embed = "8"
+dirs = "5"
+regex = "1"
+libc = "0.2"
+block = { workspace = true }
+objc2 = "0.6"
+objc2-app-kit = "0.3"
+objc2-foundation = "0.3"
+objc2-service-management = "0.3"
+pulldown-cmark = "0.13.4"
+
+[package.metadata.bundle]
+name = "Flypaste"
+identifier = "com.flypaste.app"
+icon = ["crates/flypaste/assets/icons/Flypaste.icns"]
+version = "0.1.0"
+copyright = "Copyright © 2026"
+category = "public.app-category.productivity"
+short_description = "Clipboard history manager for macOS"
+long_description = "A clipboard history manager for macOS, built with Rust and GPUI."
+osx_minimum_system_version = "12.0"
+osx_info_plist_exts = ["crates/flypaste/assets/Info.plist.ext"]
