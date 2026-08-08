@@ -766,9 +766,9 @@ impl Render for PasteWindow {
 
 impl PasteWindow {
     fn render_item(&mut self, index: usize, item: &ClipboardItem, cx: &mut Context<Self>) -> Stateful<Div> {
-        // Shortcut label at the end with ⌘ prefix
+        // Shortcut label at the end with ⌥ prefix
         let shortcut_label = if index < 9 {
-            Some(format!("\u{2318} {}", index + 1))  // ⌘1, ⌘2, etc.
+            Some(format!("\u{2325} {}", index + 1))  // ⌥1, ⌥2, etc.
         } else {
             None
         };

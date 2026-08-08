@@ -147,7 +147,7 @@ impl HotkeyManager {
         .into_iter()
         .enumerate()
         {
-            let hotkey = HotKey::new(Some(Modifiers::SUPER), code);
+            let hotkey = HotKey::new(Some(Modifiers::ALT), code);
             hotkeys.push((hotkey, WindowHotkeyAction::PasteIndex(i as u8)));
         }
 

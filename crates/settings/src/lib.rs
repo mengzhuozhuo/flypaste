@@ -151,7 +151,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             hotkey: Hotkey {
-                modifiers: vec!["cmd".to_string()],
+                modifiers: vec!["alt".to_string()],
                 key: "BackQuote".to_string(),
             },
             regex_hotkey: Hotkey {

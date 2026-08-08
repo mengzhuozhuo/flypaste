@@ -34,8 +34,8 @@ To minimize interruptions to your current workflow, Flypaste provides two work m
 
 ![](./paste-window.png)
 
-- **Summon the panel**: The default shortcut is `Cmd + \`` (the key to the left of the number 1). To modify this, click the 👻 icon in the menu bar, choose **"Settings…"**, and configure it in the **"Shortcuts"** tab.
-- **Paste**: Click a paste item directly or use the shortcut `Cmd + 1` to `Cmd + 9` to select a paste item.
+- **Summon the panel**: The default shortcut is `Alt + \`` (the key to the left of the number 1). To modify this, click the 👻 icon in the menu bar, choose **"Settings…"**, and configure it in the **"Shortcuts"** tab.
+- **Paste**: Click a paste item directly or use the shortcut `Alt + 1` to `Alt + 9` to select a paste item.
   - Stealth Mode: After clicking a paste item, the content will be **automatically pasted** into your original working window.
   - Focus Mode: After clicking a paste item, the content will be **copied** to the clipboard.
 - **Pin window**: Use the shortcut `Cmd + Option + P` or click the 📌 icon in the top right corner of the panel to pin the panel to the top layer of the screen, suitable for consecutive multi-paste scenarios.
@@ -105,7 +105,7 @@ Click the 👻 icon in the menu bar at the top of the screen, choose **"Settings
 
 The retention period is applied during **the next launch**, not immediately. To clean up expired data right away, go to **"Settings…"** -> **"Storage"** and click **"Clean Expired Data"**.
 
-### 7. What if the shortcut conflicts? The default `Cmd + \`` doesn't work?
+### 7. What if the shortcut conflicts? The default `Alt + \`` doesn't work?
 
 If the default shortcut doesn't respond, it's usually taken by another app (such as an input method or certain IDEs). You can click the 👻 icon in the menu bar at the top of the screen, choose **"Settings…"**, and record your own global summon shortcut in the **"Shortcuts"** tab.
 

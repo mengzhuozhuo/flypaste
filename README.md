@@ -6,9 +6,9 @@ A clipboard history manager for macOS, built with Rust and GPUI.
 
 ## Features
 
-- **Global Hotkey**: Press `Cmd+`` to bring up clipboard history popup
+- **Global Hotkey**: Press `Alt+`` to bring up clipboard history popup
 - **Multiple Content Types**: Plain text, rich text (RTF), images, HTML, file paths
-- **Quick Select**: Use `Cmd+1` ~ `Cmd+9` to select items directly
+- **Quick Select**: Use `Alt+1` ~ `Alt+9` to select items directly
 - **Search**: Type to search history, prefix with `/` for regex search
 - **Format Preservation**: Keep original formatting or paste as plain text
 - **Auto-start**: Launch at login (optional)

@@ -20,8 +20,8 @@ To minimize interruptions to your current workflow, Flypaste provides two work m
 
 ![](./paste-window.png)
 
-- **Summon the panel**: The default shortcut is ``` Cmd + ` ``` (the key to the left of the number 1). To modify this, go to "Settings -> Shortcuts".
-- **Paste**: Click a paste item directly or use the shortcut `Cmd + 1` to `Cmd + 9` to select a paste item.
+- **Summon the panel**: The default shortcut is ``` Alt + ` ``` (the key to the left of the number 1). To modify this, please go to "Settings -> Shortcuts".
+- **Paste**: Click a paste item directly or use the shortcut `Alt + 1` to `Alt + 9` to select a paste item.
   - Stealth Mode: After clicking a paste item, the content will be **automatically pasted** into your original working window.
   - Focus Mode: After clicking a paste item, the content will be **copied** to the clipboard.
 - **Pin window**: Use the shortcut `Cmd + Option + P` or click the ![[../icons/pin.svg]] icon in the top right corner of the panel to pin the panel to the top layer of the screen, suitable for consecutive multi-paste scenarios.

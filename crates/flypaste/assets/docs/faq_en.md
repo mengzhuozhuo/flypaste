@@ -10,7 +10,7 @@
 ## Why isn't the configured data retention period taking effect?
 The retention period is applied during **the next launch**, not immediately. To clean up expired data right away, go to Settings -> "Storage" and click "Clean Expired Data".
 
-## What if the shortcut conflicts? The default `Cmd + \`` doesn't work?
+## What if the shortcut conflicts? The default `Alt + \`` doesn't work?
 If the default shortcut doesn't respond, it's usually taken by another app (such as an input method or certain IDEs). You can click the ![[../icons/ghost.svg]] icon in the menu bar at the top of the screen, choose "Settings...", and record your own global summon shortcut in the "Shortcuts" tab.
 
 ## Why doesn't pressing Space preview content?
