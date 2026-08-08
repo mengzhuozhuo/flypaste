@@ -244,45 +244,77 @@ fn fetch_app_icon_internal(bundle_id: &str) -> Option<Vec<u8>> {
         // Get path to application bundle
         let path: *mut objc::runtime::Object = msg_send![workspace, absolutePathForAppBundleWithIdentifier: bid_ns];
         if path.is_null() {
+            log::error!("fetch_app_icon_internal: path is null for bundle_id {}", bundle_id);
             return None;
         }
 
         // Get icon for the file at that path
         let icon: *mut objc::runtime::Object = msg_send![workspace, iconForFile: path];
         if icon.is_null() {
+            log::error!("fetch_app_icon_internal: icon is null for bundle_id {}", bundle_id);
             return None;
         }
 
         // Get TIFF representation (raw icon data)
         let tiff_data: *mut objc::runtime::Object = msg_send![icon, TIFFRepresentation];
         if tiff_data.is_null() {
+            log::error!("fetch_app_icon_internal: tiff_data is null for bundle_id {}", bundle_id);
             return None;
         }
 
-        let tiff_bytes: *const u8 = msg_send![tiff_data, bytes];
-        let tiff_length: usize = msg_send![tiff_data, length];
-
-        if tiff_bytes.is_null() || tiff_length == 0 {
+        // Use macOS native API to convert TIFF to PNG (avoids 'image' crate panicking on 16-bit float TIFFs)
+        let cls_bitmap = Class::get("NSBitmapImageRep")?;
+        let bitmap_rep: *mut objc::runtime::Object = msg_send![cls_bitmap, imageRepWithData: tiff_data];
+        if bitmap_rep.is_null() {
+            log::error!("fetch_app_icon_internal: bitmap_rep is null for bundle_id {}", bundle_id);
             return None;
         }
 
-        let tiff_slice = std::slice::from_raw_parts(tiff_bytes, tiff_length).to_vec();
+        let cls_dict = Class::get("NSDictionary")?;
+        let empty_dict: *mut objc::runtime::Object = msg_send![cls_dict, dictionary];
 
-        // Load TIFF and resize to 48x48 for consistent icon size and sharpness
-        let img = image::load_from_memory(&tiff_slice).ok()?;
+        // 4 is NSPNGFileType
+        let png_data: *mut objc::runtime::Object = msg_send![bitmap_rep, representationUsingType: 4_usize properties: empty_dict];
+        if png_data.is_null() {
+            log::error!("fetch_app_icon_internal: png_data is null for bundle_id {}", bundle_id);
+            return None;
+        }
+
+        let png_bytes: *const u8 = msg_send![png_data, bytes];
+        let png_length: usize = msg_send![png_data, length];
+
+        if png_bytes.is_null() || png_length == 0 {
+            log::error!("fetch_app_icon_internal: png_bytes is null or length is 0 for bundle_id {}", bundle_id);
+            return None;
+        }
+
+        let png_slice = std::slice::from_raw_parts(png_bytes, png_length);
+
+        // Load PNG and resize to 48x48 for consistent icon size and sharpness
+        let img = match image::load_from_memory(png_slice) {
+            Ok(img) => img,
+            Err(e) => {
+                log::error!("fetch_app_icon_internal: image::load_from_memory failed for bundle_id {}: {:?}", bundle_id, e);
+                return None;
+            }
+        };
         let img = img.resize_exact(48, 48, image::imageops::FilterType::Triangle);
 
-        let mut png_bytes = Vec::new();
-        let mut cursor = std::io::Cursor::new(&mut png_bytes);
-        img.write_to(&mut cursor, image::ImageFormat::Png).ok()?;
+        let mut final_png_bytes = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut final_png_bytes);
+        if let Err(e) = img.write_to(&mut cursor, image::ImageFormat::Png) {
+            log::error!("fetch_app_icon_internal: write_to png failed for bundle_id {}: {:?}", bundle_id, e);
+            return None;
+        }
 
-        Some(png_bytes)
+        Some(final_png_bytes)
     }
 }
 
 #[cfg(not(target_os = "macos"))]
 fn fetch_app_icon_internal(_bundle_id: &str) -> Option<Vec<u8>> {
     None
+
 }
 
 /// Public getter for cached icons with async loading
