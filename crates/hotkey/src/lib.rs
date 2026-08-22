@@ -133,6 +133,23 @@ impl HotkeyManager {
         let escape = HotKey::new(None, Code::Escape);
         hotkeys.push((escape, WindowHotkeyAction::Close));
 
+        let mut toggle_modifiers = Modifiers::empty();
+        for m in &settings.hotkey.modifiers {
+            match m.to_lowercase().as_str() {
+                "cmd" | "command" => toggle_modifiers |= Modifiers::SUPER,
+                "alt" | "option" => toggle_modifiers |= Modifiers::ALT,
+                "shift" => toggle_modifiers |= Modifiers::SHIFT,
+                "ctrl" | "control" => toggle_modifiers |= Modifiers::CONTROL,
+                _ => {}
+            }
+        }
+        
+        if !toggle_modifiers.is_empty() {
+            let escape_with_mods = HotKey::new(Some(toggle_modifiers), Code::Escape);
+            hotkeys.push((escape_with_mods, WindowHotkeyAction::Close));
+        }
+
+
         for (i, code) in [
             Code::Digit1,
             Code::Digit2,

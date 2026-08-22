@@ -39,3 +39,4 @@ Temporary Items
 .env
 .env.local
 vendor/zed/
+.codegraph

@@ -58,6 +58,12 @@ pub struct PasteWindow {
     search_highlight_generation: u64,
     ghost_error_animation: f32,
     ghost_error_generation: u64,
+    pub alt_tab_mode: bool,
+    pub modifier_released_since_open: bool,
+    pub is_alt_held_initially: bool,
+    pub first_alt_tab_done: bool,
+    pub auto_select_progress: f32,
+    pub auto_select_generation: u64,
 }
 
 impl PasteWindow {
@@ -186,8 +192,8 @@ impl PasteWindow {
         .detach();
 
         let settings = fly_settings::Settings::load().unwrap_or_default();
-
-        Self {
+        
+        let mut window_state = Self {
             selected_index: 0,
             focus_handle,
             search_input,
@@ -204,7 +210,74 @@ impl PasteWindow {
             search_highlight_generation: 0,
             ghost_error_animation: 0.0,
             ghost_error_generation: 0,
+            alt_tab_mode: false,
+            modifier_released_since_open: false,
+            is_alt_held_initially: {
+                let settings = fly_settings::Settings::load().unwrap_or_default();
+                Self::is_global_modifier_pressed(&settings)
+            },
+            first_alt_tab_done: false,
+            auto_select_progress: 0.0,
+            auto_select_generation: 0,
+        };
+        
+        window_state.start_release_monitor(cx);
+        
+        if window_state.is_alt_held_initially {
+            window_state.auto_select_generation += 1;
+            let generation = window_state.auto_select_generation;
+            
+            cx.spawn(async move |_, mut cx| {
+                const STEPS: u64 = 25;
+                let step_ms = 500 / STEPS;
+                
+                for step in 1..=STEPS {
+                    cx.background_executor().timer(std::time::Duration::from_millis(step_ms)).await;
+                    
+                    let mut should_break = false;
+                    let _ = cx.update(|cx| {
+                        if let Some(handle) = crate::ui::WINDOW_HANDLE.lock().unwrap().clone() {
+                            let _ = handle.update(cx, |view: &mut PasteWindow, _window, cx| {
+                                if view.auto_select_generation != generation 
+                                    || !view.is_alt_held_initially 
+                                    || view.first_alt_tab_done 
+                                    || view.modifier_released_since_open {
+                                    view.auto_select_progress = 0.0;
+                                    cx.notify();
+                                    should_break = true;
+                                } else {
+                                    view.auto_select_progress = step as f32 / STEPS as f32;
+                                    cx.notify();
+                                }
+                            });
+                        }
+                    });
+                    
+                    if should_break {
+                        return;
+                    }
+                }
+                
+                // Animation finished successfully
+                let _ = cx.update(|cx| {
+                    if let Some(handle) = crate::ui::WINDOW_HANDLE.lock().unwrap().clone() {
+                        let _ = handle.update(cx, |view: &mut PasteWindow, _window, cx| {
+                            if view.auto_select_generation == generation 
+                                && view.is_alt_held_initially 
+                                && !view.first_alt_tab_done 
+                                && !view.modifier_released_since_open {
+                                log::info!("PasteWindow - 0.5s timer triggered, auto-selecting first item");
+                                view.first_alt_tab_done = true;
+                                view.auto_select_progress = 0.0;
+                                view.start_alt_tab_monitor(cx);
+                                cx.notify();
+                            }
+                        });
+                    }
+                });
+            }).detach();
         }
+        window_state
     }
 
     fn animate_search_highlight(&mut self, target: f32, cx: &mut Context<Self>) {
@@ -362,6 +435,154 @@ impl PasteWindow {
         }).detach();
     }
 
+
+    pub fn select_next(&mut self, cx: &mut Context<Self>) {
+        if self.items.is_empty() { return; }
+        if self.selected_index + 1 < self.items.len() {
+            self.selected_index += 1;
+        } else {
+            self.selected_index = 0;
+        }
+        
+        self.hovered_index = Some(self.selected_index);
+        let is_hovering = true;
+        self.search_input.update(cx, |input, cx| {
+            input.set_hovering_item(is_hovering, cx);
+        });
+
+        let item_top = gpui::px(self.selected_index as f32 * 50.0);
+        let item_bottom = item_top + gpui::px(50.0);
+        let current_scroll = gpui::px(0.0) - self.scroll_handle.offset().y;
+        let mut max_scroll = self.scroll_handle.max_offset().y;
+        if max_scroll < gpui::px(0.0) {
+            max_scroll = gpui::px(0.0);
+        }
+        let content_height = gpui::px(self.items.len() as f32 * 50.0);
+        let visible_height = content_height - max_scroll;
+        
+        let mut new_scroll = current_scroll;
+        if item_top < current_scroll {
+            new_scroll = item_top;
+        } else if item_bottom > current_scroll + visible_height {
+            new_scroll = item_bottom - visible_height;
+        }
+        
+        self.scroll_handle.set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0) - new_scroll));
+
+        cx.notify();
+    }
+    
+    #[cfg(target_os = "macos")]
+    pub fn is_global_modifier_pressed(settings: &fly_settings::Settings) -> bool {
+        let mut has_hotkey_modifier = false;
+        unsafe {
+            use objc::{msg_send, sel, sel_impl, class};
+            let current_modifiers: usize = msg_send![class!(NSEvent), modifierFlags];
+            for m in &settings.hotkey.modifiers {
+                match m.to_lowercase().as_str() {
+                    "cmd" | "command" => if (current_modifiers & 0x100000) != 0 { has_hotkey_modifier = true; },
+                    "alt" | "option" => if (current_modifiers & 0x80000) != 0 { has_hotkey_modifier = true; },
+                    "shift" => if (current_modifiers & 0x20000) != 0 { has_hotkey_modifier = true; },
+                    "ctrl" | "control" => if (current_modifiers & 0x40000) != 0 { has_hotkey_modifier = true; },
+                    _ => {}
+                }
+            }
+        }
+        has_hotkey_modifier
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    pub fn is_global_modifier_pressed(_settings: &fly_settings::Settings) -> bool {
+        false
+    }
+
+    pub fn start_release_monitor(&mut self, cx: &mut Context<Self>) {
+        log::info!("start_release_monitor called");
+        cx.spawn(async move |_, mut cx| {
+            loop {
+                cx.background_executor().timer(std::time::Duration::from_millis(50)).await;
+                
+                let mut should_exit = false;
+                
+                let _ = cx.update(|cx| {
+                    if let Some(handle) = crate::ui::WINDOW_HANDLE.lock().unwrap().clone() {
+                        let res = handle.update(cx, |view: &mut PasteWindow, window, _| {
+                            let settings = fly_settings::Settings::load().unwrap_or_default();
+                            let has_hotkey_modifier = Self::is_global_modifier_pressed(&settings);
+                            
+                            if !has_hotkey_modifier {
+                                log::info!("start_release_monitor: detected release of hotkey modifier");
+                                view.modifier_released_since_open = true;
+                                view.is_alt_held_initially = false;
+                                should_exit = true;
+                            }
+                        });
+                        if res.is_err() {
+                            should_exit = true;
+                        }
+                    }
+                });
+                
+                if should_exit {
+                    break;
+                }
+            }
+        }).detach();
+    }
+
+    pub fn start_alt_tab_monitor(&mut self, cx: &mut Context<Self>) {
+        log::info!("start_alt_tab_monitor called");
+        if self.alt_tab_mode { return; }
+        self.alt_tab_mode = true;
+        
+        cx.spawn(async move |_, mut cx| {
+            loop {
+                cx.background_executor().timer(std::time::Duration::from_millis(50)).await;
+                
+                let mut should_exit = false;
+                let mut item_to_paste = None;
+                
+                let _ = cx.update(|cx| {
+                    if let Some(handle) = crate::ui::WINDOW_HANDLE.lock().unwrap().clone() {
+                        let res = handle.update(cx, |view: &mut PasteWindow, window, _cx| {
+                            if !view.alt_tab_mode { 
+                                should_exit = true; 
+                                return; 
+                            }
+                            
+                            let settings = fly_settings::Settings::load().unwrap_or_default();
+                            let has_hotkey_modifier = Self::is_global_modifier_pressed(&settings);
+                            
+                            if !has_hotkey_modifier {
+                                log::info!("start_alt_tab_monitor: detected release, pasting current item");
+                                view.alt_tab_mode = false;
+                                should_exit = true;
+                                item_to_paste = view.item_id_at_index(view.selected_index);
+                            }
+                        });
+                        if res.is_err() {
+                            should_exit = true;
+                        }
+                    }
+                });
+                
+                if let Some(item_id) = item_to_paste {
+                    log::info!("start_alt_tab_monitor sending PasteItem for id {}", item_id);
+                    if let Some(tx) = crate::ui::HOTKEY_TX.get() {
+                        let in_focus_mode = crate::ui::is_in_focus_mode_for_paste();
+                        let _ = tx.try_send(crate::ui::HotkeyEvent::PasteItem {
+                            item_id,
+                            in_focus_mode,
+                        });
+                    }
+                }
+                
+                if should_exit {
+                    break;
+                }
+            }
+        }).detach();
+    }
 
     /// Reload items from database (called when clipboard changes)
     pub fn reload_items(&mut self, cx: &mut Context<Self>) {
@@ -778,7 +999,7 @@ impl PasteWindow {
             .replace('\n', "↵ ")
             .replace('\r', "");
 
-        let is_selected = index == self.selected_index;
+        let is_selected = index == self.selected_index && self.first_alt_tab_done;
         let is_image = item.content_type == "image";
 
         // Clone the id for the click handler
@@ -843,6 +1064,20 @@ impl PasteWindow {
             item_div
                 .bg(rgba(0x007AFF26))  // 0x26 ≈ 15% opacity
                 .rounded_sm()
+        } else if index == self.selected_index && self.auto_select_progress > 0.0 && !self.first_alt_tab_done && self.is_alt_held_initially {
+            item_div
+                .relative()
+                .hover(|div| div.bg(rgba(0x007AFF26)))
+                .child(
+                    div()
+                        .absolute()
+                        .left_0()
+                        .top_0()
+                        .bottom_0()
+                        .w(gpui::relative(self.auto_select_progress))
+                        .bg(rgba(0x007AFF26))
+                        .rounded_sm()
+                )
         } else {
             // Hover effect same as selected (blue background)
             item_div.hover(|div| div.bg(rgba(0x007AFF26)))

@@ -22,8 +22,8 @@ theme = { git = "https://github.com/zed-industries/zed.git", package = "theme", 
 theme_settings = { git = "https://github.com/zed-industries/zed.git", package = "theme_settings", rev = "ee6495dce4012019ccc235486afa800da443d680" }
 menu = { git = "https://github.com/zed-industries/zed.git", package = "menu", rev = "ee6495dce4012019ccc235486afa800da443d680" }
 zed_actions = { git = "https://github.com/zed-industries/zed.git", package = "zed_actions", rev = "ee6495dce4012019ccc235486afa800da443d680" }
-cocoa = { workspace = true }
-objc = { workspace = true }
+cocoa.workspace = true
+objc.workspace = true
 core-graphics = { workspace = true }
 clipboard = { path = "../clipboard" }
 history = { path = "../history" }

@@ -1122,10 +1122,37 @@ pub fn init(cx: &mut App) {
                                 HotkeyEvent::ToggleWindow => {
                                     let is_open = WINDOW_IS_OPEN.load(std::sync::atomic::Ordering::SeqCst);
                                     let has_handle = WINDOW_HANDLE.lock().unwrap().is_some();
+                                    
+                                    log::info!("HotkeyEvent::ToggleWindow received. is_open: {}, has_handle: {}", is_open, has_handle);
 
                                     if is_open && !has_handle { reset_window_flag(); }
 
                                     if is_open && has_handle {
+                                        let mut handled = false;
+                                        if let Some(handle) = WINDOW_HANDLE.lock().unwrap().clone() {
+                                            let _ = handle.update(&mut cx, |view, _window, cx| {
+                                                let settings = fly_settings::Settings::load().unwrap_or_default();
+                                                let has_hotkey_modifier = PasteWindow::is_global_modifier_pressed(&settings);
+                                                
+                                                log::info!("ToggleWindow - has_hotkey_modifier: {}, modifier_released_since_open: {}", has_hotkey_modifier, view.modifier_released_since_open);
+                                                
+                                                if has_hotkey_modifier && !view.modifier_released_since_open {
+                                                    log::info!("ToggleWindow - cycling to next item");
+                                                    view.start_alt_tab_monitor(cx);
+                                                    if !view.first_alt_tab_done {
+                                                        view.first_alt_tab_done = true;
+                                                        cx.notify();
+                                                    } else {
+                                                        view.select_next(cx);
+                                                    }
+                                                    handled = true;
+                                                }
+                                            });
+                                        }
+                                        if handled {
+                                            continue;
+                                        }
+                                        log::info!("ToggleWindow - closing window");
                                         close_paste_window(&mut cx);
                                     } else {
                                         if WINDOW_IS_OPEN.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_ok() {
