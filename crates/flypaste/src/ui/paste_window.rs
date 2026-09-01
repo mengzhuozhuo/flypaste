@@ -1026,11 +1026,6 @@ impl PasteWindow {
                 }
             }))
             .on_mouse_move(cx.listener(move |this, _event, _window, cx| {
-                // Only update if actually changed to avoid unnecessary re-renders
-                if this.selected_index != index {
-                    this.selected_index = index;
-                    cx.notify();
-                }
                 this.hovered_index = Some(index);
                 
                 // Sync status to TextInput for interception
@@ -1067,7 +1062,7 @@ impl PasteWindow {
         } else if index == self.selected_index && self.auto_select_progress > 0.0 && !self.first_alt_tab_done && self.is_alt_held_initially {
             item_div
                 .relative()
-                .hover(|div| div.bg(rgba(0x007AFF26)))
+                .hover(|div| div.bg(rgba(0x007AFF10)))
                 .child(
                     div()
                         .absolute()
@@ -1079,8 +1074,8 @@ impl PasteWindow {
                         .rounded_sm()
                 )
         } else {
-            // Hover effect same as selected (blue background)
-            item_div.hover(|div| div.bg(rgba(0x007AFF26)))
+            // Hover effect less obvious than selected (lighter blue background)
+            item_div.hover(|div| div.bg(rgba(0x007AFF10)))
         };
 
         // Shortcut badge - fixed 31px width, doesn't shrink, stays on right

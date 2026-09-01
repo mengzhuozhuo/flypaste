@@ -124,6 +124,9 @@ pub(crate) fn on_paste_window_released() {
 pub(crate) fn on_settings_window_released() {
     SETTINGS_WINDOW_HANDLE.lock().unwrap().take();
     SETTINGS_IS_OPEN.store(false, std::sync::atomic::Ordering::SeqCst);
+    if !WINDOW_IS_OPEN.load(std::sync::atomic::Ordering::SeqCst) {
+        crate::ui::hide_flypaste_app();
+    }
 }
 
 pub(crate) fn on_preview_window_released() {
@@ -156,6 +159,11 @@ fn close_paste_window(cx: &mut AsyncApp) {
         reset_window_flag();
         return;
     };
+
+    if !SETTINGS_IS_OPEN.load(std::sync::atomic::Ordering::SeqCst) {
+        crate::ui::hide_flypaste_app();
+    }
+
     if handle
         .update(cx, |_, window, _| window.remove_window())
         .is_err()
@@ -508,6 +516,19 @@ pub(crate) fn activate_flypaste_app() {
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn activate_flypaste_app() {}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn hide_flypaste_app() {
+    unsafe {
+        use objc::{msg_send, sel, sel_impl};
+        let cls_app = objc::runtime::Class::get("NSApplication").unwrap();
+        let app: *mut objc::runtime::Object = msg_send![cls_app, sharedApplication];
+        let _: () = msg_send![app, hide: std::ptr::null_mut::<objc::runtime::Object>()];
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn hide_flypaste_app() {}
 
 /// Activate Flypaste and make the paste panel key (required for Chinese IME in search).
 #[cfg(target_os = "macos")]

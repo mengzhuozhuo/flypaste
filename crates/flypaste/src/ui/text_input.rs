@@ -465,7 +465,7 @@ impl Render for TextInput {
             .key_context("TextInput")
             .track_focus(&self.focus_handle(cx))
             .id("text_input")
-            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+            .on_mouse_down(MouseButton::Left, cx.listener(|this, _: &MouseDownEvent, window, cx| {
                 if let Some(handler) = &this.on_focus_requested {
                     handler(window, cx);
                 }
