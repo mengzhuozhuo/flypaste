@@ -47,7 +47,7 @@ To minimize interruptions to your current workflow, Flypaste provides two work m
 
 ### 3. Search and Preview
 
-The search and preview functions need to be used in Focus Mode. Click the search box to enter Focus Mode. In Focus Mode, typing directly will input into the search box, and the paste history list will update synchronously.
+The search and preview functions need to be used in Focus Mode. Click the search box or press shortcut `Cmd + Option + F` to enter Focus Mode. In Focus Mode, typing directly will input into the search box, and the paste history list will update synchronously.
 
 - **Advanced Search Rules**:
   - **Regular Expressions**: Default shortcut `Cmd + Option + R` or click the .* icon on the right side of the search box to enable.
@@ -113,5 +113,5 @@ If the default shortcut doesn't respond, it's usually taken by another app (such
 
 Space preview requires two conditions:
 
-1. You must be in **Focus Mode** (click the search box to enter).
+1. You must be in **Focus Mode** (click the search box or press shortcut `Cmd + Option + F` to enter).
 2. The mouse must be hovering over a paste record.

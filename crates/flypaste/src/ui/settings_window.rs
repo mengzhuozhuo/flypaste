@@ -19,6 +19,7 @@ pub enum RecordingTarget {
     Activation,
     Regex,
     CaseSensitive,
+    FocusSearch,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -354,6 +355,7 @@ impl SettingsWindow {
             RecordingTarget::Activation => "record_activation",
             RecordingTarget::Regex => "record_regex",
             RecordingTarget::CaseSensitive => "record_case",
+            RecordingTarget::FocusSearch => "record_focus_search",
         };
 
         Button::new(id, if is_recording { recording_label.to_string() } else { hotkey.display() })
@@ -723,6 +725,16 @@ impl SettingsWindow {
                                     cx,
                                 ),
                             ))
+                            .child(Divider::horizontal())
+                            .child(Self::render_labeled_row(
+                                t.focus_search,
+                                self.render_hotkey_button(
+                                    RecordingTarget::FocusSearch,
+                                    &settings.focus_hotkey,
+                                    t.press_hotkey,
+                                    cx,
+                                ),
+                            ))
                     )
                     .child(Self::section_footer(t.shortcuts_footer))
             )
@@ -957,6 +969,7 @@ impl Render for SettingsWindow {
                                     RecordingTarget::Activation => &mut s.hotkey,
                                     RecordingTarget::Regex => &mut s.regex_hotkey,
                                     RecordingTarget::CaseSensitive => &mut s.case_sensitive_hotkey,
+                                    RecordingTarget::FocusSearch => &mut s.focus_hotkey,
                                 };
                                 hotkey.modifiers = modifiers;
                                 hotkey.key = key;

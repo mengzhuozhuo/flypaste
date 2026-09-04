@@ -11,6 +11,9 @@ pub struct Settings {
     pub regex_hotkey: Hotkey,
     /// 大小写敏感快捷键
     pub case_sensitive_hotkey: Hotkey,
+    /// 聚焦搜索快捷键
+    #[serde(default = "default_focus_hotkey")]
+    pub focus_hotkey: Hotkey,
     /// 最大历史数据量（字节）
     pub max_total_bytes: u64,
     /// 文本保留天数
@@ -106,6 +109,13 @@ fn default_search_panel_opacity() -> f32 {
     0.70
 }
 
+fn default_focus_hotkey() -> Hotkey {
+    Hotkey {
+        modifiers: vec!["cmd".to_string(), "alt".to_string()],
+        key: "f".to_string(),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Hotkey {
     pub modifiers: Vec<String>,
@@ -162,6 +172,7 @@ impl Default for Settings {
                 modifiers: vec!["cmd".to_string(), "alt".to_string()],
                 key: "c".to_string(),
             },
+            focus_hotkey: default_focus_hotkey(),
             max_total_bytes: 100 * 1024 * 1024, // 100MiB
             text_retention_days: default_text_retention_days(),
             image_retention_days: default_image_retention_days(),

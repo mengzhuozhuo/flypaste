@@ -7,7 +7,7 @@ use clipboard::ClipboardContent;
 use image::GenericImageView;
 use gpui::{
     ease_in_out, prelude::*, rgba, App, Bounds, BoxShadow, Div, FocusHandle, Focusable, HighlightStyle,
-    Image, ImageFormat, ImageSource, KeyDownEvent, Render, ScrollHandle, ScrollWheelEvent, Stateful,
+    Hsla, Image, ImageFormat, ImageSource, KeyDownEvent, Render, Rgba, ScrollHandle, ScrollWheelEvent, Stateful,
     StyledText, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowKind,
     WindowOptions, div, img, point, px, rgb, Entity,
 };
@@ -20,16 +20,53 @@ use ui::{Color, Icon, IconName, IconSize};
 
 const SEARCH_HIGHLIGHT_MS: u64 = 180;
 
-fn focus_mode_glow(highlight: f32) -> Vec<BoxShadow> {
+#[cfg(target_os = "macos")]
+pub fn system_accent_color() -> Hsla {
+    unsafe {
+        use objc::{msg_send, sel, sel_impl, runtime::{Class, Object}};
+        if let (Some(cls_color), Some(cls_space)) = (Class::get("NSColor"), Class::get("NSColorSpace")) {
+            let accent: *mut Object = msg_send![cls_color, controlAccentColor];
+            if !accent.is_null() {
+                let srgb_space: *mut Object = msg_send![cls_space, sRGBColorSpace];
+                let srgb: *mut Object = msg_send![accent, colorUsingColorSpace: srgb_space];
+                if !srgb.is_null() {
+                    let mut r: f64 = 0.0;
+                    let mut g: f64 = 0.0;
+                    let mut b: f64 = 0.0;
+                    let mut a: f64 = 0.0;
+                    let _: () = msg_send![srgb, getRed: &mut r green: &mut g blue: &mut b alpha: &mut a];
+                    return Rgba {
+                        r: r as f32,
+                        g: g as f32,
+                        b: b as f32,
+                        a: a as f32,
+                    }.into();
+                }
+            }
+        }
+    }
+    rgb(0x007aff).into()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn system_accent_color() -> Hsla {
+    rgb(0x007aff).into()
+}
+
+fn focus_mode_glow(accent_color: Hsla, highlight: f32) -> Vec<BoxShadow> {
+    let mut c1 = accent_color;
+    c1.a = (56.0 / 255.0) * highlight;
+    let mut c2 = accent_color;
+    c2.a = (31.0 / 255.0) * highlight;
     vec![
         BoxShadow {
-            color: rgba(0x007AFF00 | u32::from((56.0 * highlight) as u8)).into(),
+            color: c1,
             offset: point(px(0.), px(0.)),
             blur_radius: px(5.),
             spread_radius: px(0.),
         },
         BoxShadow {
-            color: rgba(0x007AFF00 | u32::from((31.0 * highlight) as u8)).into(),
+            color: c2,
             offset: point(px(0.), px(0.)),
             blur_radius: px(10.),
             spread_radius: px(1.),
@@ -625,7 +662,7 @@ impl PasteWindow {
     pub fn handle_window_hotkey(
         &mut self,
         action: hotkey::WindowHotkeyAction,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         match action {
@@ -637,6 +674,9 @@ impl PasteWindow {
             }
             hotkey::WindowHotkeyAction::ToggleRegex => self.toggle_regex_mode(cx),
             hotkey::WindowHotkeyAction::ToggleCaseSensitive => self.toggle_case_sensitive(cx),
+            hotkey::WindowHotkeyAction::FocusSearch => {
+                self.focus_search_input(window, cx);
+            }
         }
     }
 
@@ -714,6 +754,10 @@ impl Render for PasteWindow {
         let is_regex_mode = self.is_regex_mode;
         let is_case_sensitive = self.is_case_sensitive;
 
+        let highlight = self.search_highlight;
+        let system_accent = system_accent_color();
+        let accent_color_type = Color::Custom(system_accent);
+
         // Case sensitive button - toggles case sensitive search
         let case_button = div()
             .flex_none()
@@ -740,7 +784,7 @@ impl Render for PasteWindow {
             .child(
                 Icon::from_path("icons/case_sensitive.svg")
                     .size(IconSize::Small)
-                    .color(if is_case_sensitive { Color::Info } else { Color::Muted })
+                    .color(if is_case_sensitive { accent_color_type } else { Color::Muted })
             );
 
         // Regex button - toggles regex search mode
@@ -775,7 +819,7 @@ impl Render for PasteWindow {
             .child(
                 Icon::new(IconName::Regex)
                     .size(IconSize::Small)
-                    .color(if is_regex_mode { Color::Info } else { Color::Muted })
+                    .color(if is_regex_mode { accent_color_type } else { Color::Muted })
             );
 
         // Pin button - toggles pinned state
@@ -794,10 +838,8 @@ impl Render for PasteWindow {
             .child(
                 Icon::new(IconName::Pin)
                     .size(IconSize::Small)
-                    .color(if is_pinned { Color::Custom(rgb(0x007aff).into()) } else { Color::Muted })
+                    .color(if is_pinned { accent_color_type } else { Color::Muted })
             );
-
-        let highlight = self.search_highlight;
 
         let search_icon = div()
             .flex_none()
@@ -812,7 +854,7 @@ impl Render for PasteWindow {
                     .items_center()
                     .justify_center()
                     .size(px(16.0))
-                    .when(highlight > 0.001, |this| this.shadow(focus_mode_glow(highlight)))
+                    .when(highlight > 0.001, |this| this.shadow(focus_mode_glow(system_accent, highlight)))
                     .child(
                         Icon::new(IconName::MagnifyingGlass)
                             .size(IconSize::Small)
@@ -829,7 +871,7 @@ impl Render for PasteWindow {
                             .child(
                                 Icon::new(IconName::MagnifyingGlass)
                                     .size(IconSize::Small)
-                                    .color(Color::Custom(rgb(0x007aff).into()))
+                                    .color(accent_color_type)
                             )
                     )
             );
@@ -856,7 +898,7 @@ impl Render for PasteWindow {
                     .justify_center()
                     .size(px(16.0))
                     .left(px(wiggle_x))
-                    .when(highlight > 0.001, |this| this.shadow(focus_mode_glow(highlight)))
+                    .when(highlight > 0.001, |this| this.shadow(focus_mode_glow(system_accent, highlight)))
                     .child(
                         Icon::from_path(FLYPASTE_ICON_PATH)
                             .size(IconSize::Small)
@@ -873,7 +915,7 @@ impl Render for PasteWindow {
                             .child(
                                 Icon::from_path(FLYPASTE_ICON_PATH)
                                     .size(IconSize::Small)
-                                    .color(Color::Custom(rgb(0x007aff).into())),
+                                    .color(accent_color_type),
                             ),
                     )
                     .when(is_error, |this| {

@@ -30,10 +30,11 @@ To minimize interruptions to your current workflow, Flypaste provides two work m
   - ![[../icons/pin.svg]] Pin window
   - ![[../icons/case_sensitive.svg]] Case sensitive
   - ![[../icons/regex.svg]] Regular expressions
+  - Focus search
 
 ## 3. Search and Preview
 
-The search and preview functions need to be used in Focus Mode. Click the search box to enter Focus Mode. In Focus Mode, typing directly will input into the search box, and the paste history list will update synchronously.
+The search and preview functions need to be used in Focus Mode. Click the search box or press shortcut `Cmd + Option + F` to enter Focus Mode. In Focus Mode, typing directly will input into the search box, and the paste history list will update synchronously.
 
 - **Advanced Search Rules**:
   - **Regular Expressions**: Default shortcut `Cmd + Option + R` or click the ![[../icons/regex.svg]] icon on the right side of the search box to enable.

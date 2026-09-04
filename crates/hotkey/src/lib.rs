@@ -13,6 +13,7 @@ pub enum WindowHotkeyAction {
     TogglePin,
     ToggleRegex,
     ToggleCaseSensitive,
+    FocusSearch,
 }
 
 enum DispatchTarget {
@@ -176,6 +177,9 @@ impl HotkeyManager {
         }
         if let Some(hotkey) = Self::settings_to_hotkey(&settings.case_sensitive_hotkey) {
             hotkeys.push((hotkey, WindowHotkeyAction::ToggleCaseSensitive));
+        }
+        if let Some(hotkey) = Self::settings_to_hotkey(&settings.focus_hotkey) {
+            hotkeys.push((hotkey, WindowHotkeyAction::FocusSearch));
         }
 
         let mut registered = Vec::new();
