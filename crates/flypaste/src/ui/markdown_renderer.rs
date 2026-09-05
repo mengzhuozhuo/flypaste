@@ -1,11 +1,14 @@
-use gpui::{div, prelude::*, ElementId, IntoElement, RenderOnce, Styled, Window, App, StyledText, HighlightStyle};
+use std::collections::HashMap;
+use gpui::{div, prelude::*, ElementId, Entity, IntoElement, RenderOnce, Styled, Window, App, StyledText, HighlightStyle};
 use pulldown_cmark::{Event, Parser, Tag, TagEnd};
 use ui::prelude::*;
+use crate::ui::animated_gif::AnimatedGifView;
 
 #[derive(IntoElement)]
 pub struct MarkdownRenderer {
     id: ElementId,
     content: String,
+    gif_views: HashMap<String, Entity<AnimatedGifView>>,
 }
 
 impl MarkdownRenderer {
@@ -18,7 +21,13 @@ impl MarkdownRenderer {
         Self {
             id: id.into(),
             content,
+            gif_views: HashMap::new(),
         }
+    }
+
+    pub fn with_gif_views(mut self, gif_views: HashMap<String, Entity<AnimatedGifView>>) -> Self {
+        self.gif_views = gif_views;
+        self
     }
 }
 
@@ -183,6 +192,14 @@ impl RenderOnce for MarkdownRenderer {
                         let clean_url = url.trim_start_matches("./").trim_start_matches("/");
                         let asset_path = format!("docs/{}", clean_url);
                         
+                        if clean_url.ends_with(".gif") {
+                            if let Some(gif_view) = self.gif_views.get(&asset_path) {
+                                flush_block!(false, 0, false, false);
+                                blocks.push(gif_view.clone().into_any_element());
+                                continue;
+                            }
+                        }
+
                         if let Some(asset) = crate::assets::Assets::get(&asset_path) {
                             let format = if clean_url.ends_with(".png") {
                                 gpui::ImageFormat::Png

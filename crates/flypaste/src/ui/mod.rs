@@ -6,6 +6,7 @@ pub mod paste_window;
 pub mod settings_window;
 pub mod markdown_renderer;
 pub mod text_input;
+pub mod animated_gif;
 
 use gpui::*;
 use std::sync::Arc;
@@ -1064,6 +1065,7 @@ pub fn init(cx: &mut App) {
     let history_bg = app_state.history.clone();
     std::thread::spawn(move || {
         history_bg.load_or_build_searcher();
+        animated_gif::preload_doc_gifs();
     });
 
     let history_poll = app_state.history.clone();

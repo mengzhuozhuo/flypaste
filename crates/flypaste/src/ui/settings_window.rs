@@ -6,11 +6,13 @@ use crate::i18n;
 use crate::statusbar;
 use crate::ui::number_field::{NumberField, NumberFieldMode};
 use crate::ui::opacity_slider::{opacity_slider, BrowsePanelOpacityDrag, SearchPanelOpacityDrag};
-use crate::ui::{GlobalAppState, refresh_paste_window, update_global_hotkey, refresh_paste_window_hotkeys};
+use crate::ui::{GlobalAppState, refresh_paste_window, update_global_hotkey};
 use fly_settings::{Language, Settings, Hotkey};
+use std::collections::HashMap;
 use std::rc::Rc;
 use ui::{prelude::*, Divider, Switch, Color, Label, SpinnerLabel, ToggleState, Button, ButtonStyle};
 use crate::ui::markdown_renderer::MarkdownRenderer;
+use crate::ui::animated_gif::AnimatedGifView;
 
 const INDEX_REBUILD_MIN_LOADING: std::time::Duration = std::time::Duration::from_millis(800);
 
@@ -41,11 +43,13 @@ pub struct SettingsWindow {
     cleaning_up: bool,
     clear_confirm_open: bool,
     active_tab: SettingsTab,
+    gif_views: HashMap<String, Entity<AnimatedGifView>>,
 }
 
 impl SettingsWindow {
     pub fn new(window: &mut gpui::Window, cx: &mut Context<Self>) -> Self {
         crate::ui::apply_theme(window.appearance(), cx);
+        crate::ui::animated_gif::preload_doc_gifs();
 
         cx.observe_window_appearance(window, |_, window, cx| {
             let appearance = window.appearance();
@@ -81,6 +85,7 @@ impl SettingsWindow {
             cleaning_up: false,
             clear_confirm_open: false,
             active_tab: SettingsTab::General,
+            gif_views: HashMap::new(),
         }
     }
 
@@ -297,6 +302,9 @@ impl SettingsWindow {
                 this.active_tab = tab;
                 this.recording_target = None;
                 this.recording_error = None;
+                if tab != SettingsTab::Tutorial && tab != SettingsTab::Faq {
+                    this.gif_views.clear();
+                }
                 cx.notify();
             }))
             .child(
@@ -355,6 +363,24 @@ impl SettingsWindow {
                     .size(LabelSize::XSmall)
                     .color(Color::Muted),
             )
+    }
+
+    fn ensure_gif_views_for_markdown(&mut self, content: &str, cx: &mut Context<Self>) {
+        let parser = pulldown_cmark::Parser::new(content);
+        for event in parser {
+            if let pulldown_cmark::Event::Start(pulldown_cmark::Tag::Image { dest_url, .. }) = event {
+                let url = dest_url.to_string();
+                let clean_url = url.trim_start_matches("./").trim_start_matches("/");
+                if clean_url.ends_with(".gif") {
+                    let asset_path = format!("docs/{}", clean_url);
+                    if !self.gif_views.contains_key(&asset_path) {
+                        let path = asset_path.clone();
+                        let view = cx.new(|cx| AnimatedGifView::new(path, cx));
+                        self.gif_views.insert(asset_path, view);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1218,7 +1244,14 @@ impl Render for SettingsWindow {
                                                 _ => "docs/tutorial.md",
                                             };
                                             let content = std::str::from_utf8(crate::assets::Assets::get(file_path).unwrap().data.as_ref()).unwrap().to_string();
-                                            div().pr_12().child(MarkdownRenderer::new("tutorial_md", content)).into_any_element()
+                                            self.ensure_gif_views_for_markdown(&content, cx);
+                                            div()
+                                                .pr_12()
+                                                .child(
+                                                    MarkdownRenderer::new("tutorial_md", content)
+                                                        .with_gif_views(self.gif_views.clone())
+                                                )
+                                                .into_any_element()
                                         }
                                         SettingsTab::Faq => {
                                             let language = fly_settings::Settings::load().unwrap_or_default().language;
@@ -1227,7 +1260,14 @@ impl Render for SettingsWindow {
                                                 _ => "docs/faq.md",
                                             };
                                             let content = std::str::from_utf8(crate::assets::Assets::get(file_path).unwrap().data.as_ref()).unwrap().to_string();
-                                            div().pr_12().child(MarkdownRenderer::new("faq_md", content)).into_any_element()
+                                            self.ensure_gif_views_for_markdown(&content, cx);
+                                            div()
+                                                .pr_12()
+                                                .child(
+                                                    MarkdownRenderer::new("faq_md", content)
+                                                        .with_gif_views(self.gif_views.clone())
+                                                )
+                                                .into_any_element()
                                         }
                                     })
                             )
