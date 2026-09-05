@@ -14,6 +14,9 @@ pub struct Settings {
     /// 聚焦搜索快捷键
     #[serde(default = "default_focus_hotkey")]
     pub focus_hotkey: Hotkey,
+    /// 窗口固定快捷键
+    #[serde(default = "default_pin_hotkey")]
+    pub pin_hotkey: Hotkey,
     /// 最大历史数据量（字节）
     pub max_total_bytes: u64,
     /// 文本保留天数
@@ -116,6 +119,13 @@ fn default_focus_hotkey() -> Hotkey {
     }
 }
 
+fn default_pin_hotkey() -> Hotkey {
+    Hotkey {
+        modifiers: vec!["cmd".to_string(), "alt".to_string()],
+        key: "p".to_string(),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Hotkey {
     pub modifiers: Vec<String>,
@@ -173,6 +183,7 @@ impl Default for Settings {
                 key: "c".to_string(),
             },
             focus_hotkey: default_focus_hotkey(),
+            pin_hotkey: default_pin_hotkey(),
             max_total_bytes: 100 * 1024 * 1024, // 100MiB
             text_retention_days: default_text_retention_days(),
             image_retention_days: default_image_retention_days(),
@@ -295,5 +306,28 @@ impl Manager {
 
     pub fn settings(&self) -> &Settings {
         &self.settings
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_pin_hotkey() {
+        let settings = Settings::default();
+        assert_eq!(settings.pin_hotkey.key, "p");
+        assert_eq!(settings.pin_hotkey.modifiers, vec!["cmd", "alt"]);
+        assert_eq!(settings.pin_hotkey.display(), "⌘⌥p");
+    }
+
+    #[test]
+    fn test_deserialize_without_pin_hotkey() {
+        // Serialize default settings, remove pin_hotkey, and verify deserialization succeeds with default pin_hotkey
+        let mut val: serde_json::Value = serde_json::to_value(Settings::default()).unwrap();
+        val.as_object_mut().unwrap().remove("pin_hotkey");
+        let settings: Settings = serde_json::from_value(val).expect("should deserialize with default pin_hotkey");
+        assert_eq!(settings.pin_hotkey.key, "p");
+        assert_eq!(settings.pin_hotkey.modifiers, vec!["cmd", "alt"]);
     }
 }

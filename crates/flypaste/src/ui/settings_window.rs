@@ -6,7 +6,7 @@ use crate::i18n;
 use crate::statusbar;
 use crate::ui::number_field::{NumberField, NumberFieldMode};
 use crate::ui::opacity_slider::{opacity_slider, BrowsePanelOpacityDrag, SearchPanelOpacityDrag};
-use crate::ui::{GlobalAppState, refresh_paste_window, update_global_hotkey};
+use crate::ui::{GlobalAppState, refresh_paste_window, update_global_hotkey, refresh_paste_window_hotkeys};
 use fly_settings::{Language, Settings, Hotkey};
 use std::rc::Rc;
 use ui::{prelude::*, Divider, Switch, Color, Label, SpinnerLabel, ToggleState, Button, ButtonStyle};
@@ -17,6 +17,7 @@ const INDEX_REBUILD_MIN_LOADING: std::time::Duration = std::time::Duration::from
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum RecordingTarget {
     Activation,
+    Pin,
     Regex,
     CaseSensitive,
     FocusSearch,
@@ -35,6 +36,7 @@ pub struct SettingsWindow {
     focus_handle: FocusHandle,
     scroll_handle: ScrollHandle,
     recording_target: Option<RecordingTarget>,
+    recording_error: Option<(RecordingTarget, String)>,
     rebuilding_index: bool,
     cleaning_up: bool,
     clear_confirm_open: bool,
@@ -61,10 +63,20 @@ impl SettingsWindow {
         })
         .detach();
 
+        cx.observe_window_activation(window, |this, window, cx| {
+            if !window.is_window_active() && this.recording_target.is_some() {
+                this.recording_target = None;
+                this.recording_error = None;
+                cx.notify();
+            }
+        })
+        .detach();
+
         Self {
             focus_handle,
             scroll_handle: ScrollHandle::new(),
             recording_target: None,
+            recording_error: None,
             rebuilding_index: false,
             cleaning_up: false,
             clear_confirm_open: false,
@@ -283,6 +295,8 @@ impl SettingsWindow {
             })
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.active_tab = tab;
+                this.recording_target = None;
+                this.recording_error = None;
                 cx.notify();
             }))
             .child(
@@ -342,7 +356,113 @@ impl SettingsWindow {
                     .color(Color::Muted),
             )
     }
+}
 
+fn normalize_modifiers(mods: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = mods
+        .iter()
+        .map(|m| match m.to_lowercase().as_str() {
+            "cmd" | "command" => "cmd".to_string(),
+            "alt" | "option" => "alt".to_string(),
+            "ctrl" | "control" => "ctrl".to_string(),
+            "shift" => "shift".to_string(),
+            other => other.to_string(),
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+fn normalize_key(k: &str) -> String {
+    let lower = k.to_lowercase();
+    if lower == "`" || lower == "backquote" {
+        "backquote".to_string()
+    } else {
+        lower
+    }
+}
+
+fn validate_hotkey(
+    target: RecordingTarget,
+    modifiers: &[String],
+    key: &str,
+    settings: &Settings,
+    t: &'static i18n::Strings,
+) -> Result<(), String> {
+    let norm_mods = normalize_modifiers(modifiers);
+
+    // 1. Check modifiers: must have at least one of cmd, alt, ctrl
+    let has_main_modifier = norm_mods.iter().any(|m| match m.as_str() {
+        "cmd" | "alt" | "ctrl" => true,
+        _ => false,
+    });
+    let has_shift = norm_mods.iter().any(|m| m.as_str() == "shift");
+
+    if !has_main_modifier {
+        if has_shift {
+            return Err(t.hotkey_err_shift_only.to_string());
+        } else {
+            return Err(t.hotkey_err_modifier_required.to_string());
+        }
+    }
+
+    // 2. Check key mapping
+    if hotkey::key_name_to_code(key).is_none() {
+        return Err(t.hotkey_err_unsupported.to_string());
+    }
+
+    // 3. Check system reserved keys
+    let norm_key = normalize_key(key);
+    let is_cmd_only = norm_mods.as_slice() == ["cmd"];
+    if is_cmd_only {
+        match norm_key.as_str() {
+            "q" | "w" | "h" | "m" | "tab" | "space" | "c" | "v" | "x" | "a" | "z" => {
+                return Err(t.hotkey_err_system_reserved.to_string());
+            }
+            _ => {}
+        }
+    }
+    let has_cmd = norm_mods.contains(&"cmd".to_string());
+    let has_alt = norm_mods.contains(&"alt".to_string());
+    if has_cmd && has_alt && norm_key == "escape" {
+        return Err(t.hotkey_err_system_reserved.to_string());
+    }
+
+    // 4. Check internal conflicts
+    let check_conflict = |other_target: RecordingTarget, other_hotkey: &Hotkey| -> Option<String> {
+        if other_target == target {
+            return None;
+        }
+        let other_norm_mods = normalize_modifiers(&other_hotkey.modifiers);
+        let other_norm_key = normalize_key(&other_hotkey.key);
+        if norm_mods == other_norm_mods && norm_key == other_norm_key {
+            Some(t.hotkey_err_conflict.to_string())
+        } else {
+            None
+        }
+    };
+
+    if let Some(err) = check_conflict(RecordingTarget::Activation, &settings.hotkey) {
+        return Err(err);
+    }
+    if let Some(err) = check_conflict(RecordingTarget::Pin, &settings.pin_hotkey) {
+        return Err(err);
+    }
+    if let Some(err) = check_conflict(RecordingTarget::FocusSearch, &settings.focus_hotkey) {
+        return Err(err);
+    }
+    if let Some(err) = check_conflict(RecordingTarget::Regex, &settings.regex_hotkey) {
+        return Err(err);
+    }
+    if let Some(err) = check_conflict(RecordingTarget::CaseSensitive, &settings.case_sensitive_hotkey) {
+        return Err(err);
+    }
+
+    Ok(())
+}
+
+impl SettingsWindow {
     fn render_hotkey_button(
         &self,
         target: RecordingTarget,
@@ -351,24 +471,57 @@ impl SettingsWindow {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let is_recording = self.recording_target == Some(target);
+        let error_msg = self.recording_error.as_ref().and_then(|(t, msg)| {
+            if *t == target {
+                Some(msg.as_str())
+            } else {
+                None
+            }
+        });
+
         let id = match target {
             RecordingTarget::Activation => "record_activation",
+            RecordingTarget::Pin => "record_pin",
             RecordingTarget::Regex => "record_regex",
             RecordingTarget::CaseSensitive => "record_case",
             RecordingTarget::FocusSearch => "record_focus_search",
         };
 
-        Button::new(id, if is_recording { recording_label.to_string() } else { hotkey.display() })
-            .style(if is_recording { ButtonStyle::Filled } else { ButtonStyle::Subtle })
-            .color(if is_recording { Color::Accent } else { Color::Default })
-            .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _, cx| {
-                if this.recording_target == Some(target) {
-                    this.recording_target = None;
-                } else {
-                    this.recording_target = Some(target);
-                }
-                cx.notify();
-            }))
+        let label = if let Some(err) = error_msg {
+            err.to_string()
+        } else if is_recording {
+            recording_label.to_string()
+        } else {
+            hotkey.display()
+        };
+
+        let color = if error_msg.is_some() {
+            Color::Error
+        } else if is_recording {
+            Color::Accent
+        } else {
+            Color::Default
+        };
+
+        div()
+            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                cx.stop_propagation();
+            })
+            .child(
+                Button::new(id, label)
+                    .style(if is_recording { ButtonStyle::Filled } else { ButtonStyle::Subtle })
+                    .color(color)
+                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _, cx| {
+                        if this.recording_target == Some(target) {
+                            this.recording_target = None;
+                            this.recording_error = None;
+                        } else {
+                            this.recording_target = Some(target);
+                            this.recording_error = None;
+                        }
+                        cx.notify();
+                    }))
+            )
     }
 
     fn render_labeled_row(label: &str, control: impl IntoElement) -> impl IntoElement {
@@ -707,6 +860,26 @@ impl SettingsWindow {
                             ))
                             .child(Divider::horizontal())
                             .child(Self::render_labeled_row(
+                                t.pin_window,
+                                self.render_hotkey_button(
+                                    RecordingTarget::Pin,
+                                    &settings.pin_hotkey,
+                                    t.press_hotkey,
+                                    cx,
+                                ),
+                            ))
+                            .child(Divider::horizontal())
+                            .child(Self::render_labeled_row(
+                                t.focus_search,
+                                self.render_hotkey_button(
+                                    RecordingTarget::FocusSearch,
+                                    &settings.focus_hotkey,
+                                    t.press_hotkey,
+                                    cx,
+                                ),
+                            ))
+                            .child(Divider::horizontal())
+                            .child(Self::render_labeled_row(
                                 t.regex_search,
                                 self.render_hotkey_button(
                                     RecordingTarget::Regex,
@@ -721,16 +894,6 @@ impl SettingsWindow {
                                 self.render_hotkey_button(
                                     RecordingTarget::CaseSensitive,
                                     &settings.case_sensitive_hotkey,
-                                    t.press_hotkey,
-                                    cx,
-                                ),
-                            ))
-                            .child(Divider::horizontal())
-                            .child(Self::render_labeled_row(
-                                t.focus_search,
-                                self.render_hotkey_button(
-                                    RecordingTarget::FocusSearch,
-                                    &settings.focus_hotkey,
                                     t.press_hotkey,
                                     cx,
                                 ),
@@ -917,6 +1080,13 @@ impl Render for SettingsWindow {
         div()
             .relative()
             .size_full()
+            .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, _, cx| {
+                if this.recording_target.is_some() {
+                    this.recording_target = None;
+                    this.recording_error = None;
+                    cx.notify();
+                }
+            }))
             .child(
                 div()
                     .flex()
@@ -935,6 +1105,14 @@ impl Render for SettingsWindow {
                         }
 
                         if let Some(target) = this.recording_target {
+                            if event.keystroke.key == "escape" {
+                                this.recording_target = None;
+                                this.recording_error = None;
+                                cx.notify();
+                                cx.stop_propagation();
+                                return;
+                            }
+
                             let mut modifiers = Vec::new();
                             if event.keystroke.modifiers.platform {
                                 modifiers.push("cmd".to_string());
@@ -951,8 +1129,10 @@ impl Render for SettingsWindow {
 
                             let mut key = event.keystroke.key.clone();
 
-                            if key == "`" {
+                            if key == "`" || key.eq_ignore_ascii_case("backquote") {
                                 key = "BackQuote".to_string();
+                            } else if key.len() == 1 && key.chars().next().map_or(false, |c| c.is_ascii_alphabetic()) {
+                                key = key.to_lowercase();
                             }
 
                             if key == "cmd"
@@ -964,24 +1144,38 @@ impl Render for SettingsWindow {
                                 return;
                             }
 
-                            this.update_settings(cx, |s| {
-                                let hotkey = match target {
-                                    RecordingTarget::Activation => &mut s.hotkey,
-                                    RecordingTarget::Regex => &mut s.regex_hotkey,
-                                    RecordingTarget::CaseSensitive => &mut s.case_sensitive_hotkey,
-                                    RecordingTarget::FocusSearch => &mut s.focus_hotkey,
-                                };
-                                hotkey.modifiers = modifiers;
-                                hotkey.key = key;
+                            let current_settings = fly_settings::Settings::load().unwrap_or_default();
+                            match validate_hotkey(target, &modifiers, &key, &current_settings, t) {
+                                Ok(()) => {
+                                    this.update_settings(cx, |s| {
+                                        let hotkey = match target {
+                                            RecordingTarget::Activation => &mut s.hotkey,
+                                            RecordingTarget::Pin => &mut s.pin_hotkey,
+                                            RecordingTarget::Regex => &mut s.regex_hotkey,
+                                            RecordingTarget::CaseSensitive => &mut s.case_sensitive_hotkey,
+                                            RecordingTarget::FocusSearch => &mut s.focus_hotkey,
+                                        };
+                                        hotkey.modifiers = modifiers;
+                                        hotkey.key = key;
 
-                                if target == RecordingTarget::Activation {
-                                    update_global_hotkey(hotkey);
+                                        if target == RecordingTarget::Activation {
+                                            update_global_hotkey(hotkey);
+                                        } else {
+                                            crate::ui::refresh_paste_window_hotkeys();
+                                        }
+                                    });
+
+                                    this.recording_target = None;
+                                    this.recording_error = None;
+                                    cx.notify();
+                                    cx.stop_propagation();
                                 }
-                            });
-
-                            this.recording_target = None;
-                            cx.notify();
-                            cx.stop_propagation();
+                                Err(err) => {
+                                    this.recording_error = Some((target, err));
+                                    cx.notify();
+                                    cx.stop_propagation();
+                                }
+                            }
                         } else {
                             if event.keystroke.key == "w" && event.keystroke.modifiers.platform {
                                 window.remove_window();

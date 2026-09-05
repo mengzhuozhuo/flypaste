@@ -866,6 +866,15 @@ fn unregister_paste_window_hotkeys() {
     }
 }
 
+pub fn refresh_paste_window_hotkeys() {
+    if let Some(mgr) = HOTKEY_MANAGER.get() {
+        if WINDOW_IS_OPEN.load(std::sync::atomic::Ordering::SeqCst) {
+            let settings = fly_settings::Settings::load().unwrap_or_default();
+            mgr.register_window_hotkeys(&settings);
+        }
+    }
+}
+
 /// Open the settings window, or bring the existing one to front.
 /// Uses `cx.defer` when focusing an already-open window to avoid nested `window.update` deadlocks.
 fn toggle_settings(cx: &mut App) {

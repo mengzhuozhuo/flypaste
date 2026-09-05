@@ -169,8 +169,9 @@ impl HotkeyManager {
             hotkeys.push((hotkey, WindowHotkeyAction::PasteIndex(i as u8)));
         }
 
-        let pin = HotKey::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyP);
-        hotkeys.push((pin, WindowHotkeyAction::TogglePin));
+        if let Some(hotkey) = Self::settings_to_hotkey(&settings.pin_hotkey) {
+            hotkeys.push((hotkey, WindowHotkeyAction::TogglePin));
+        }
 
         if let Some(hotkey) = Self::settings_to_hotkey(&settings.regex_hotkey) {
             hotkeys.push((hotkey, WindowHotkeyAction::ToggleRegex));
@@ -206,7 +207,7 @@ impl HotkeyManager {
     }
 }
 
-fn key_name_to_code(key: &str) -> Option<Code> {
+pub fn key_name_to_code(key: &str) -> Option<Code> {
     match key.to_lowercase().as_str() {
         "backquote" | "`" => Some(Code::Backquote),
         "comma" | "," => Some(Code::Comma),
@@ -259,5 +260,29 @@ fn key_name_to_code(key: &str) -> Option<Code> {
             log::warn!("Unknown key name: {}", key);
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_key_name_to_code() {
+        assert_eq!(key_name_to_code("p"), Some(Code::KeyP));
+        assert_eq!(key_name_to_code("P"), Some(Code::KeyP));
+        assert_eq!(key_name_to_code("BackQuote"), Some(Code::Backquote));
+        assert_eq!(key_name_to_code("`"), Some(Code::Backquote));
+        assert_eq!(key_name_to_code("escape"), Some(Code::Escape));
+        assert_eq!(key_name_to_code("unknown_key_xyz"), None);
+    }
+
+    #[test]
+    fn test_pin_hotkey_settings_mapping() {
+        let settings = fly_settings::Settings::default();
+        let hotkey = HotkeyManager::settings_to_hotkey(&settings.pin_hotkey);
+        assert!(hotkey.is_some());
+        let expected = HotKey::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyP);
+        assert_eq!(hotkey.unwrap(), expected);
     }
 }
