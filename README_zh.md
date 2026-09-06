@@ -68,24 +68,41 @@ Flypaste 使用 [cargo-bundle](https://github.com/burtonageo/cargo-bundle) 来�
 cargo install cargo-bundle
 ```
 
-#### 构建通用架构应用 (Universal Binary)
+#### 构建通用架构应用 (Universal Binary) 与发布打包
 
-为了让应用能在 Apple Silicon (M1/M2/M3) 和 Intel Mac 上都原生运行，我们提供了一个打包脚本。运行以下命令：
+为了让应用能在 Apple Silicon (M1/M2/M3/M4) 和 Intel Mac 上都原生运行，我们提供了一键打包脚本 `scripts/bundle-universal.sh`。
 
 ```bash
+# 完整发布打包（编译多架构 + 代码签名 + 制作 DMG + Apple 官方公证 + 装订票据）
 ./scripts/bundle-universal.sh
+
+# 本地调试打包（跳过 Apple 公证，生成本地测试使用的 DMG 和 App）
+./scripts/bundle-universal.sh --skip-notarize
 ```
 
-该脚本的工作流程：
-1. 分别编译 `aarch64-apple-darwin` 和 `x86_64-apple-darwin` 两个架构的 Release 版本
-2. 使用 `lipo` 工具将它们合并为单一的可执行文件
-3. 使用 `cargo bundle` 打包生成 `Flypaste.app`
-4. 自动为应用进行本地签名 (Ad-hoc signing) 或是使用环境变量中的开发者证书进行签名
+##### 脚本参数选项
+- `--cert <name>`: 指定代码签名证书（默认自动检测钥匙串中的 `Developer ID Application` 证书）。
+- `--notary-profile <name>`: 指定公证钥匙串凭据名称（默认使用 `developer-notary`）。
+- `--skip-notarize`: 跳过 Apple 公证阶段，仅做签名与 DMG 打包。
+- `--skip-build`: 跳过 Cargo 编译步骤（直接使用现有 `target/` 二进制快速重试打包/签名）。
 
-最终产物将位于：
-```
-target/release/bundle/osx/Flypaste.app
-```
+##### 工作流程
+1. 分别编译 `aarch64-apple-darwin` 和 `x86_64-apple-darwin` 的 Release 版本。
+2. 使用 `lipo` 工具合并为单一 Universal Binary 可执行文件。
+3. 使用 `cargo bundle` 打包生成标准的 `Flypaste.app`。
+4. 自动检测 `Developer ID Application` 证书，开启 Hardened Runtime 与安全时间戳进行代码签名。
+5. 打包生成带有 `/Applications` 软链接的 DMG 镜像文件，并对 DMG 签名。
+6. 自动提交给苹果公证服务（Notary Service）并等待通过，随后装订公证票据（Staple）。
+7. 使用 macOS Gatekeeper (`spctl`) 检验是否可以直接放行。
+
+##### 产物位置
+- **DMG 安装镜像（用于分发给他人）**: `target/dist/Flypaste-<version>-universal.dmg`
+- **App 应用程序**: `target/release/bundle/osx/Flypaste.app`
+
+> [!NOTE]
+> **开源与安全性说明**：
+> 打包脚本本身及项目代码库**绝不包含任何密码、私钥或账号敏感信息**。
+> 证书与公证凭据均安全保存在开发者本地的 macOS 钥匙串（Keychain）中。其他开发者若没有配置证书，运行脚本会自动降级为本地 Ad-hoc 签名。
 
 #### 构建当前机器的单架构应用
 

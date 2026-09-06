@@ -68,25 +68,41 @@ Install `cargo-bundle` once:
 cargo install cargo-bundle
 ```
 
-#### Universal app (Intel + Apple Silicon)
+#### Universal App (Intel + Apple Silicon) & Distribution Packaging
 
-For distribution, build a **Universal Binary** so the same `.app` runs natively on both Apple Silicon and Intel Macs:
+For distribution, we provide an all-in-one packaging script `scripts/bundle-universal.sh` to build a **Universal Binary** that runs natively on both Apple Silicon and Intel Macs:
 
 ```bash
+# Full distribution build (Multi-arch compilation + Developer ID signing + DMG packaging + Apple Notarization + Stapling)
 ./scripts/bundle-universal.sh
+
+# Local build (skip Apple Notarization, produces signed DMG and App for local testing)
+./scripts/bundle-universal.sh --skip-notarize
 ```
 
-The script:
+##### Script Options
+- `--cert <name>`: Code signing identity (auto-detects `Developer ID Application` from Keychain if omitted).
+- `--notary-profile <name>`: Keychain profile name for `notarytool` (defaults to `developer-notary`).
+- `--skip-notarize`: Skip submitting to Apple Notary Service.
+- `--skip-build`: Skip cargo compilation and reuse existing universal binaries in `target/`.
 
-1. Builds release binaries for `aarch64-apple-darwin` and `x86_64-apple-darwin`
-2. Merges them with `lipo` into one executable
-3. Packages `Flypaste.app` with `cargo bundle` (skipping rebuild so the universal binary is preserved)
+##### Workflow
+1. Builds release binaries for `aarch64-apple-darwin` and `x86_64-apple-darwin`.
+2. Merges them with `lipo` into a single universal executable.
+3. Packages `Flypaste.app` using `cargo bundle`.
+4. Signs `Flypaste.app` with `Developer ID Application`, Hardened Runtime, and secure timestamp.
+5. Builds a distributable `.dmg` installer with an `/Applications` shortcut, and signs the DMG.
+6. Submits the DMG to Apple Notary Service and staples the notarization ticket upon success.
+7. Verifies Gatekeeper acceptance with `spctl`.
 
-Output:
+##### Artifacts
+- **DMG Installer (for distribution)**: `target/dist/Flypaste-<version>-universal.dmg`
+- **Application Bundle**: `target/release/bundle/osx/Flypaste.app`
 
-```
-target/release/bundle/osx/Flypaste.app
-```
+> [!NOTE]
+> **Open Source & Security**:
+> The packaging script contains **no passwords, private keys, or secret tokens**.
+> All credentials and certificates are stored securely in your local macOS Keychain (`login.keychain`). Other contributors without developer certificates can run the script safely; it will automatically fall back to local ad-hoc signing.
 
 Verify both architectures are included:
 
