@@ -9,21 +9,25 @@ To minimize interruptions to your current workflow, Flypaste provides two work m
 - **Stealth Mode (Default)**:
   The panel floats and **does not steal the input focus of the current application**. In this mode, when you click or select a record via a shortcut, the content is **automatically pasted** into your original working window.
   *(Note: Since the focus remains on the original window, search queries cannot be performed in this mode.)*
+![](./Stealth.gif)
 
 - **Focus Mode**:
-  Click the search box at the top of the panel to enter. At this time, the panel will acquire the system's keyboard input focus. You can type text to search through history records, or press the `Space` bar to preview detailed content.
+  Click the search box at the top of the panel to enter. At this time, the panel will acquire the system's keyboard input focus. You can type text to search through history records. To preview content, hover over the corresponding item and press `Space` (preview is not available in Stealth Mode).
   *(Note: In this mode, clicking any history record will only copy it back to the clipboard and **will not** automatically execute a paste action.)*
+![](./focus-mode.gif)
 
 > **Tip:** In Focus Mode, clicking any blank area outside the panel will automatically release the focus and return to Stealth Mode.
 
 ## 2. Basic Operations Guide
 
-![](./paste-window.png)
-
 - **Summon the panel**: The default shortcut is ``` Alt + ` ``` (the key to the left of the number 1). To modify this, please go to "Settings -> Shortcuts".
 - **Paste**: Click a paste item directly or use the shortcut `Alt + 1` to `Alt + 9` to select a paste item.
   - Stealth Mode: After clicking a paste item, the content will be **automatically pasted** into your original working window.
   - Focus Mode: After clicking a paste item, the content will be **copied** to the clipboard.
+
+After summoning the window, keep `Alt` pressed and press the ``` ` ``` key to move down through items, then release to paste.
+![](quick_paste.gif)
+
 - **Pin window**: Use the shortcut `Cmd + Option + P` or click the ![[../icons/pin.svg]] icon in the top right corner of the panel to pin the panel to the top layer of the screen, suitable for consecutive multi-paste scenarios.
 - **Shortcuts**: You can customize shortcuts, including:
   - Summon the panel
@@ -40,7 +44,6 @@ The search and preview functions need to be used in Focus Mode. Click the search
   - **Regular Expressions**: Default shortcut `Cmd + Option + R` or click the ![[../icons/regex.svg]] icon on the right side of the search box to enable.
   - **Case Sensitive**: Default shortcut `Cmd + Option + C` or click the ![[../icons/case_sensitive.svg]] icon on the right side of the search box to enable.
 - **Content Preview**: For long text or large images, hover the mouse over a paste record and press `Space` to pop up a preview window; press `Space` again to close it.
-![](./preview.png)
 
 ## 4. Appearance Settings
 

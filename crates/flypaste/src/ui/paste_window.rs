@@ -264,7 +264,7 @@ impl PasteWindow {
             window_state.auto_select_generation += 1;
             let generation = window_state.auto_select_generation;
             
-            cx.spawn(async move |_, mut cx| {
+            cx.spawn(async move |_, cx| {
                 const STEPS: u64 = 25;
                 let step_ms = 500 / STEPS;
                 
@@ -535,7 +535,7 @@ impl PasteWindow {
 
     pub fn start_release_monitor(&mut self, cx: &mut Context<Self>) {
         log::info!("start_release_monitor called");
-        cx.spawn(async move |_, mut cx| {
+        cx.spawn(async move |_, cx| {
             loop {
                 cx.background_executor().timer(std::time::Duration::from_millis(50)).await;
                 
@@ -543,7 +543,7 @@ impl PasteWindow {
                 
                 let _ = cx.update(|cx| {
                     if let Some(handle) = crate::ui::WINDOW_HANDLE.lock().unwrap().clone() {
-                        let res = handle.update(cx, |view: &mut PasteWindow, window, _| {
+                        let res = handle.update(cx, |view: &mut PasteWindow, _window, _| {
                             let settings = fly_settings::Settings::load().unwrap_or_default();
                             let has_hotkey_modifier = Self::is_global_modifier_pressed(&settings);
                             
@@ -572,7 +572,7 @@ impl PasteWindow {
         if self.alt_tab_mode { return; }
         self.alt_tab_mode = true;
         
-        cx.spawn(async move |_, mut cx| {
+        cx.spawn(async move |_, cx| {
             loop {
                 cx.background_executor().timer(std::time::Duration::from_millis(50)).await;
                 
@@ -581,7 +581,7 @@ impl PasteWindow {
                 
                 let _ = cx.update(|cx| {
                     if let Some(handle) = crate::ui::WINDOW_HANDLE.lock().unwrap().clone() {
-                        let res = handle.update(cx, |view: &mut PasteWindow, window, _cx| {
+                        let res = handle.update(cx, |view: &mut PasteWindow, _window, _cx| {
                             if !view.alt_tab_mode { 
                                 should_exit = true; 
                                 return; 
