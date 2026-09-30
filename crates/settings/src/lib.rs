@@ -17,6 +17,9 @@ pub struct Settings {
     /// 窗口固定快捷键
     #[serde(default = "default_pin_hotkey")]
     pub pin_hotkey: Hotkey,
+    /// 数字选择项目的修饰键（配合 1-9 使用）
+    #[serde(default = "default_item_select_modifiers")]
+    pub item_select_modifiers: Vec<String>,
     /// 最大历史数据量（字节）
     pub max_total_bytes: u64,
     /// 文本保留天数
@@ -126,6 +129,10 @@ fn default_pin_hotkey() -> Hotkey {
     }
 }
 
+fn default_item_select_modifiers() -> Vec<String> {
+    vec!["alt".to_string()]
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Hotkey {
     pub modifiers: Vec<String>,
@@ -184,6 +191,7 @@ impl Default for Settings {
             },
             focus_hotkey: default_focus_hotkey(),
             pin_hotkey: default_pin_hotkey(),
+            item_select_modifiers: default_item_select_modifiers(),
             max_total_bytes: 100 * 1024 * 1024, // 100MiB
             text_retention_days: default_text_retention_days(),
             image_retention_days: default_image_retention_days(),
@@ -281,6 +289,38 @@ impl Settings {
         self.search_panel_opacity = value.clamp(0.0, 1.0);
     }
 
+    /// 获取数字选择快捷键的修饰键显示文本（例如 "⌥", "⌘", "⌃"）
+    pub fn item_select_modifier_display(&self) -> String {
+        let mut parts = Vec::new();
+        for m in &self.item_select_modifiers {
+            match m.to_lowercase().as_str() {
+                "cmd" | "command" => parts.push("⌘"),
+                "alt" | "option" => parts.push("⌥"),
+                "shift" => parts.push("⇧"),
+                "ctrl" | "control" => parts.push("⌃"),
+                _ => parts.push(m.as_str()),
+            }
+        }
+        if parts.is_empty() {
+            "⌥".to_string()
+        } else {
+            parts.join("")
+        }
+    }
+
+    /// 获取主修饰键规范名称 ("alt", "cmd", "ctrl")
+    pub fn item_select_modifier_name(&self) -> &str {
+        for m in &self.item_select_modifiers {
+            match m.to_lowercase().as_str() {
+                "cmd" | "command" => return "cmd",
+                "ctrl" | "control" => return "ctrl",
+                "alt" | "option" => return "alt",
+                _ => {}
+            }
+        }
+        "alt"
+    }
+
     /// 保存设置
     pub fn save(&self) -> std::io::Result<()> {
         let mut settings = self.clone();
@@ -329,5 +369,27 @@ mod tests {
         let settings: Settings = serde_json::from_value(val).expect("should deserialize with default pin_hotkey");
         assert_eq!(settings.pin_hotkey.key, "p");
         assert_eq!(settings.pin_hotkey.modifiers, vec!["cmd", "alt"]);
+    }
+
+    #[test]
+    fn test_deserialize_without_item_select_modifiers() {
+        let mut val: serde_json::Value = serde_json::to_value(Settings::default()).unwrap();
+        val.as_object_mut().unwrap().remove("item_select_modifiers");
+        let settings: Settings = serde_json::from_value(val).expect("should deserialize with default item_select_modifiers");
+        assert_eq!(settings.item_select_modifiers, vec!["alt"]);
+        assert_eq!(settings.item_select_modifier_display(), "⌥");
+        assert_eq!(settings.item_select_modifier_name(), "alt");
+    }
+
+    #[test]
+    fn test_item_select_modifier_helpers() {
+        let mut settings = Settings::default();
+        settings.item_select_modifiers = vec!["cmd".to_string()];
+        assert_eq!(settings.item_select_modifier_display(), "⌘");
+        assert_eq!(settings.item_select_modifier_name(), "cmd");
+
+        settings.item_select_modifiers = vec!["ctrl".to_string()];
+        assert_eq!(settings.item_select_modifier_display(), "⌃");
+        assert_eq!(settings.item_select_modifier_name(), "ctrl");
     }
 }

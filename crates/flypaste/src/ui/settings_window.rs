@@ -6,7 +6,7 @@ use crate::i18n;
 use crate::statusbar;
 use crate::ui::number_field::{NumberField, NumberFieldMode};
 use crate::ui::opacity_slider::{opacity_slider, BrowsePanelOpacityDrag, SearchPanelOpacityDrag};
-use crate::ui::{GlobalAppState, refresh_paste_window, update_global_hotkey};
+use crate::ui::{GlobalAppState, refresh_paste_window, refresh_paste_window_hotkeys, update_global_hotkey};
 use fly_settings::{Language, Settings, Hotkey};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -924,9 +924,75 @@ impl SettingsWindow {
                                     cx,
                                 ),
                             ))
+                            .child(Divider::horizontal())
+                            .child(Self::render_labeled_row(
+                                t.item_select_modifier,
+                                self.render_item_select_modifier_picker(&settings, t, cx),
+                            ))
                     )
                     .child(Self::section_footer(t.shortcuts_footer))
             )
+    }
+
+    fn render_item_select_modifier_picker(
+        &self,
+        settings: &fly_settings::Settings,
+        t: &'static i18n::Strings,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let current = settings.item_select_modifier_name();
+        let options = [
+            ("alt", t.modifier_alt, "modifier_alt"),
+            ("cmd", t.modifier_cmd, "modifier_cmd"),
+            ("ctrl", t.modifier_ctrl, "modifier_ctrl"),
+        ];
+        let len = options.len();
+
+        h_flex()
+            .border_1()
+            .border_color(cx.theme().colors().border)
+            .rounded_md()
+            .overflow_hidden()
+            .children(options.into_iter().enumerate().map(|(i, (val, display_name, id))| {
+                let is_selected = current == val;
+                let val_owned = val.to_string();
+
+                let mut el = div()
+                    .id(id)
+                    .cursor_pointer()
+                    .px_3()
+                    .py_1()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .when(is_selected, |this| {
+                        this.bg(cx.theme().colors().element_selected)
+                    })
+                    .when(!is_selected, |this| {
+                        this.hover(|style| style.bg(cx.theme().colors().element_hover))
+                    })
+                    .child(
+                        Label::new(display_name.to_string())
+                            .color(if is_selected { Color::Default } else { Color::Muted })
+                    )
+                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _, cx| {
+                        if is_selected {
+                            return;
+                        }
+                        this.update_settings(cx, |s| {
+                            s.item_select_modifiers = vec![val_owned.clone()];
+                        });
+                        refresh_paste_window_hotkeys();
+                        refresh_paste_window(cx);
+                        cx.notify();
+                    }));
+
+                if i < len - 1 {
+                    el = el.border_r_1().border_color(cx.theme().colors().border);
+                }
+
+                el.into_any_element()
+            }))
     }
 
     fn render_storage_tab(&mut self, t: &'static i18n::Strings, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

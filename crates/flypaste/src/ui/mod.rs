@@ -113,7 +113,10 @@ pub fn apply_theme(window_appearance: gpui::WindowAppearance, cx: &mut App) {
 
 /// Notify the paste window to re-render (e.g. after settings change).
 pub fn refresh_paste_window(cx: &mut App) {
-    let _ = update_paste_window(cx, |_, _, cx| cx.notify());
+    let _ = update_paste_window(cx, |view, _, cx| {
+        view.reload_settings();
+        cx.notify();
+    });
 }
 
 pub(crate) fn on_paste_window_released() {

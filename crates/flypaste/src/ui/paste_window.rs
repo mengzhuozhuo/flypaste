@@ -101,9 +101,15 @@ pub struct PasteWindow {
     pub first_alt_tab_done: bool,
     pub auto_select_progress: f32,
     pub auto_select_generation: u64,
+    pub item_select_modifier_symbol: String,
 }
 
 impl PasteWindow {
+    pub fn reload_settings(&mut self) {
+        let settings = fly_settings::Settings::load().unwrap_or_default();
+        self.item_select_modifier_symbol = settings.item_select_modifier_display();
+    }
+
     fn persist_search_modes(regex_enabled: bool, case_sensitive_enabled: bool) {
         if let Ok(mut settings) = fly_settings::Settings::load() {
             settings.regex_enabled = regex_enabled;
@@ -256,6 +262,7 @@ impl PasteWindow {
             first_alt_tab_done: false,
             auto_select_progress: 0.0,
             auto_select_generation: 0,
+            item_select_modifier_symbol: settings.item_select_modifier_display(),
         };
         
         window_state.start_release_monitor(cx);
@@ -1029,9 +1036,9 @@ impl Render for PasteWindow {
 
 impl PasteWindow {
     fn render_item(&mut self, index: usize, item: &ClipboardItem, cx: &mut Context<Self>) -> Stateful<Div> {
-        // Shortcut label at the end with ⌥ prefix
+        // Shortcut label at the end with modifier prefix
         let shortcut_label = if index < 9 {
-            Some(format!("\u{2325} {}", index + 1))  // ⌥1, ⌥2, etc.
+            Some(format!("{} {}", self.item_select_modifier_symbol, index + 1))  // ⌥ 1, ⌘ 1, etc.
         } else {
             None
         };

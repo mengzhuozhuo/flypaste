@@ -151,6 +151,20 @@ impl HotkeyManager {
         }
 
 
+        let mut item_select_mods = Modifiers::empty();
+        for m in &settings.item_select_modifiers {
+            match m.to_lowercase().as_str() {
+                "cmd" | "command" => item_select_mods |= Modifiers::SUPER,
+                "alt" | "option" => item_select_mods |= Modifiers::ALT,
+                "shift" => item_select_mods |= Modifiers::SHIFT,
+                "ctrl" | "control" => item_select_mods |= Modifiers::CONTROL,
+                _ => {}
+            }
+        }
+        if item_select_mods.is_empty() {
+            item_select_mods = Modifiers::ALT;
+        }
+
         for (i, code) in [
             Code::Digit1,
             Code::Digit2,
@@ -165,7 +179,7 @@ impl HotkeyManager {
         .into_iter()
         .enumerate()
         {
-            let hotkey = HotKey::new(Some(Modifiers::ALT), code);
+            let hotkey = HotKey::new(Some(item_select_mods), code);
             hotkeys.push((hotkey, WindowHotkeyAction::PasteIndex(i as u8)));
         }
 
